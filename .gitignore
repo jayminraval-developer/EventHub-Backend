@@ -1,22 +1,44 @@
-# node modules
+# Node dependencies
 node_modules/
-
-# environment files
-.env
-.env.local
-.env.development
-.env.production
-
-# build outputs
-dist/
-build/
-
-# logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# system files
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
+*.log
+logs/*.log
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# OS / Editor specific
 .DS_Store
 Thumbs.db
-    
+.vscode/
+.idea/
+*.swp
+
+# Build and cache
+dist/
+build/
+.cache/
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Optional: PM2 / forever / nodemon
+.pids
+*.pid
+*.pid.lock
