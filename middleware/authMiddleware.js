@@ -1,32 +1,28 @@
 import jwt from "jsonwebtoken";
-import Admin from "../models/Admin.js";
+import User from "../models/User.js";
 
-const protectAdmin = async (req, res, next) => {
-  let token;
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    try {
-      token = req.headers.authorization.split(" ")[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+export const protectUser = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const deviceHeader = req.headers["x-device-token"];
 
-      const admin = await Admin.findById(decoded.id).select("-password");
+  if (!authHeader || !deviceHeader) {
+    return res.status(401).json({ message: "Not authorized, token missing" });
+  }
 
-      if (!admin) return res.status(401).json({ message: "Not authorized" });
+  try {
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Check device token for single-device login
-      const deviceTokenHeader = req.headers["x-device-token"];
-      if (!deviceTokenHeader || admin.deviceToken !== deviceTokenHeader) {
-        return res.status(401).json({ message: "Logged out from previous device" });
-      }
+    const user = await User.findById(decoded.id).select("-password");
 
-      req.admin = admin;
-      next();
-    } catch (error) {
-      console.error(error);
-      res.status(401).json({ message: "Not authorized, token failed" });
+    if (!user || user.deviceToken !== deviceHeader) {
+      return res.status(401).json({ message: "Logged out from previous device" });
     }
-  } else {
-    res.status(401).json({ message: "Not authorized, no token" });
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error(error);
+    return res.status(401).json({ message: "Not authorized, token failed" });
   }
 };
-
-export { protectAdmin };
