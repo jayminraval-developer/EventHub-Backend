@@ -1,77 +1,74 @@
 import User from "../models/User.js";
 import generateToken from "../utils/generateToken.js";
 import crypto from "crypto";
+import LoginActivity from "../models/LoginActivity.js"; // ✅ import new model
 
-// @desc Register new user
-// @route POST /api/user/register
-export const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: "Name, email, and password are required" });
-  }
-
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
-    return res.status(400).json({ message: "User already exists" });
-  }
-
-  const user = await User.create({ name, email, password });
-  if (user) {
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user._id),
-    });
-  } else {
-    res.status(400).json({ message: "Invalid user data" });
-  }
+// Helper to extract client IP
+const getClientIp = (req) => {
+  const xff = req.headers["x-forwarded-for"];
+  if (xff) return xff.split(",")[0].trim();
+  return req.socket?.remoteAddress || req.ip;
 };
 
-// @desc Login user (Single Device Login)
-// @route POST /api/user/login
+// @desc Login user (Single Device Login + IP/Device Tracking)
 export const loginUser = async (req, res) => {
-  const { email, password, deviceInfo } = req.body; // deviceInfo from frontend (browser info)
+  const { email, password, deviceInfo } = req.body; // deviceInfo from frontend
 
   const user = await User.findOne({ email });
+  const ip = getClientIp(req);
+  const userAgent = req.headers["user-agent"] || "";
 
-  if (user && (await user.matchPassword(password))) {
-    // Check if already logged in from another device
-    if (user.deviceToken && user.deviceToken !== deviceInfo) {
-      return res.status(403).json({
-        message: "You are already logged in on another device. Please log out first.",
+  try {
+    if (user && (await user.matchPassword(password))) {
+      // Check if already logged in from another device
+      if (user.deviceToken && user.deviceToken !== deviceInfo) {
+        await LoginActivity.create({
+          userId: user._id,
+          ip,
+          userAgent,
+          deviceInfo,
+          success: false,
+        });
+        return res.status(403).json({
+          message:
+            "You are already logged in on another device. Please log out first.",
+        });
+      }
+
+      // Generate a new device token
+      const newDeviceToken = crypto.randomBytes(32).toString("hex");
+      user.deviceToken = newDeviceToken;
+      await user.save();
+
+      // ✅ Save login activity
+      await LoginActivity.create({
+        userId: user._id,
+        ip,
+        userAgent,
+        deviceInfo,
+        success: true,
       });
+
+      return res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        token: generateToken(user._id),
+        deviceToken: newDeviceToken,
+      });
+    } else {
+      // Log failed attempt
+      await LoginActivity.create({
+        userId: user?._id,
+        ip,
+        userAgent,
+        deviceInfo,
+        success: false,
+      });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
-
-    // Generate a new device token
-    const newDeviceToken = crypto.randomBytes(32).toString("hex");
-    user.deviceToken = newDeviceToken;
-    await user.save();
-
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user._id),
-      deviceToken: newDeviceToken,
-    });
-  } else {
-    res.status(401).json({ message: "Invalid email or password" });
-  }
-};
-
-// @desc Logout user
-// @route POST /api/user/logout
-export const logoutUser = async (req, res) => {
-  const { userId } = req.body;
-
-  const user = await User.findById(userId);
-  if (user) {
-    user.deviceToken = null;
-    await user.save();
-    res.json({ message: "Logged out successfully" });
-  } else {
-    res.status(404).json({ message: "User not found" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
