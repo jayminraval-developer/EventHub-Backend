@@ -7,7 +7,7 @@ import LoginActivity from "../models/LoginActivity.js";
 
 // helper to get client IP (works behind proxies)
 const getClientIp = (req) => {
-  const xff = req.headers["x-forwarded-for"];x
+  const xff = req.headers["x-forwarded-for"];
   if (xff) return xff.split(",")[0].trim();
   // req.socket.remoteAddress returns format like ::ffff:127.0.0.1 sometimes
   const remote = req.socket?.remoteAddress || req.ip || "";
