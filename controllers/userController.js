@@ -159,3 +159,31 @@ export const logoutUser = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+// @desc Logout user from all devices
+// @route POST /api/user/logout-all
+// @access Private (Protected)
+export const logoutAllDevices = async (req, res) => {
+  try {
+    const userId = req.user?._id || req.body.userId;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // ✅ Remove deviceToken to force logout from all devices
+    user.deviceToken = null;
+    await user.save();
+
+    res.json({ message: "Logged out from all devices successfully" });
+  } catch (error) {
+    console.error("Logout All Devices Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
