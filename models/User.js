@@ -7,7 +7,15 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, default: "user" },
-    deviceToken: { type: String, default: null } // ✅ For single device login
+    deviceToken: { type: String, default: null }, // ✅ For single device login
+    lastLogin: {
+      time: Date,
+      ip: String,
+      browser: String,
+      os: String,
+      platform: String,
+      deviceInfo: Object,
+    },
   },
   { timestamps: true }
 );
