@@ -6,11 +6,8 @@ const router = express.Router();
 
 router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
-
-// Example protected route
 router.get("/dashboard", protectAdmin, (req, res) => {
-  res.json({ message: `Welcome ${req.admin.name}! This is your admin dashboard.` });
+  res.json({ message: `Welcome Admin ${req.admin.name}` });
 });
 
 export default router;
-    

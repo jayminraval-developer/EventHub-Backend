@@ -1,74 +1,70 @@
 import User from "../models/User.js";
 import generateToken from "../utils/generateToken.js";
-import crypto from "crypto";
-import LoginActivity from "../models/LoginActivity.js"; // ✅ import new model
 
-// Helper to extract client IP
-const getClientIp = (req) => {
-  const xff = req.headers["x-forwarded-for"];
-  if (xff) return xff.split(",")[0].trim();
-  return req.socket?.remoteAddress || req.ip;
-};
-
-// @desc Login user (Single Device Login + IP/Device Tracking)
-export const loginUser = async (req, res) => {
-  const { email, password, deviceInfo } = req.body; // deviceInfo from frontend
-
-  const user = await User.findOne({ email });
-  const ip = getClientIp(req);
-  const userAgent = req.headers["user-agent"] || "";
-
+// @desc Register a new user
+export const registerUser = async (req, res) => {
   try {
-    if (user && (await user.matchPassword(password))) {
-      // Check if already logged in from another device
-      if (user.deviceToken && user.deviceToken !== deviceInfo) {
-        await LoginActivity.create({
-          userId: user._id,
-          ip,
-          userAgent,
-          deviceInfo,
-          success: false,
-        });
-        return res.status(403).json({
-          message:
-            "You are already logged in on another device. Please log out first.",
-        });
-      }
+    const { name, email, password, deviceToken } = req.body;
 
-      // Generate a new device token
-      const newDeviceToken = crypto.randomBytes(32).toString("hex");
-      user.deviceToken = newDeviceToken;
-      await user.save();
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: "User already exists" });
+    }
 
-      // ✅ Save login activity
-      await LoginActivity.create({
-        userId: user._id,
-        ip,
-        userAgent,
-        deviceInfo,
-        success: true,
-      });
+    const user = await User.create({ name, email, password, deviceToken });
 
-      return res.json({
+    if (user) {
+      res.status(201).json({
         _id: user._id,
         name: user.name,
         email: user.email,
         token: generateToken(user._id),
-        deviceToken: newDeviceToken,
       });
     } else {
-      // Log failed attempt
-      await LoginActivity.create({
-        userId: user?._id,
-        ip,
-        userAgent,
-        deviceInfo,
-        success: false,
-      });
-      return res.status(401).json({ message: "Invalid email or password" });
+      res.status(400).json({ message: "Invalid user data" });
     }
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// @desc Login user
+export const loginUser = async (req, res) => {
+  try {
+    const { email, password, deviceToken } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (user && (await user.matchPassword(password))) {
+      // update device token
+      user.deviceToken = deviceToken;
+      await user.save();
+
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        token: generateToken(user._id),
+      });
+    } else {
+      res.status(401).json({ message: "Invalid email or password" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// ✅ FIX: Add this missing export
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+
+    if (user) {
+      res.json(user);
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };

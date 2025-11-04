@@ -14,9 +14,9 @@ app.use(cors());
 app.use(express.json());
 
 // Serve uploaded images
-app.use('/uploads', express.static('uploads'));
+app.use("/uploads", express.static("uploads"));
 
-app.get("/", (req, res) => res.send("EventHub Backend is running"));
+app.get("/", (req, res) => res.send("EventHub Backend is running ✅"));
 
 // Routes
 app.use("/api/admin", adminRoutes);
