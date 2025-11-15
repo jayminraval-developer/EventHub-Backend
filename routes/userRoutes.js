@@ -3,17 +3,14 @@ import {
   registerUser,
   loginUser,
   logoutUser,
-  logoutAllDevices,
+  logoutFromAllDevices, // ✅ exact same name as controller export
 } from "../controllers/userController.js";
-import { protectUser } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/logout", logoutUser);
-
-// ✅ Add this
-router.post("/logout-all", protectUser, logoutAllDevices);
+router.post("/logout-all", logoutFromAllDevices); // ✅ correct route
 
 export default router;
