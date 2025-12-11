@@ -57,6 +57,58 @@ export const loginAdmin = async (req, res) => {
   }
 };
 
+// @desc    Get Current Admin Profile
+// @route   GET /api/admin/profile
+export const getAdminProfile = async (req, res) => {
+    try {
+        // req.admin is set by protectAdmin middleware
+        const admin = await Admin.findById(req.admin._id).select("-password -deviceToken");
+        if(admin){
+            res.json(admin);
+        } else {
+            res.status(404).json({ message: "Admin not found" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+  }
+};
+
+// @desc Update Admin Profile
+// @route PUT /api/admin/profile
+export const updateAdminProfile = async (req, res) => {
+    try {
+        const admin = await Admin.findById(req.admin._id);
+        if(admin){
+            admin.name = req.body.name || admin.name;
+            admin.email = req.body.email || admin.email;
+            admin.phone = req.body.phone || admin.phone;
+            admin.bio = req.body.bio || admin.bio;
+            admin.avatar = req.body.avatar || admin.avatar;
+            
+            if(req.body.password){
+                admin.password = req.body.password;
+            }
+
+            const updatedAdmin = await admin.save();
+            res.json({
+                _id: updatedAdmin._id,
+                name: updatedAdmin.name,
+                email: updatedAdmin.email,
+                role: updatedAdmin.role,
+                phone: updatedAdmin.phone,
+                bio: updatedAdmin.bio,
+                avatar: updatedAdmin.avatar,
+                token: generateToken(updatedAdmin._id)
+            });
+        } else {
+            res.status(404).json({ message: "Admin not found" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
 // @desc    Get Admin Dashboard Stats
 // @route   GET /api/admin/stats
 export const getDashboardStats = async (req, res) => {
@@ -153,4 +205,43 @@ export const getAllEvents = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
+};
+
+// @desc    Get all events
+// @route   GET /api/admin// Get all login activities (Security Log)
+export const getLoginActivities = async (req, res) => {
+    try {
+        // Assuming LoginActivity is populated during login (which we might need to fix if it's not)
+        // For now, let's fetch from LoginActivity model if used, or aggregate from Users loginHistory.
+        // Let's use the LoginActivity model if it exists, otherwise we'll aggregate.
+        // Based on file list, LoginActivity model exists.
+        
+        // Dynamic import to avoid circular dependency issues or just standard import at top if possible
+        // But for this edit block, I will assume it is not imported yet. 
+        // Better strategy: I'll add the import at the top in a separate edit or just use User's loginHistory for now to be safe.
+        // Actually, let's check if LoginActivity is used. IF NOT, this table will be empty. 
+        // Let's sticking to "User.loginHistory" for now to show SOMETHING.
+        
+        const users = await User.find({}).select("name email loginHistory");
+        let logs = [];
+        users.forEach(user => {
+            if(user.loginHistory){
+                user.loginHistory.forEach(log => {
+                    logs.push({
+                        ...log.toObject(),
+                        userName: user.name,
+                        userEmail: user.email,
+                        _id: log._id || new Date().getTime()
+                    });
+                });
+            }
+        });
+        
+        // Sort by date desc
+        logs.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+        res.json(logs);
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };

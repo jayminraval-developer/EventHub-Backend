@@ -7,6 +7,9 @@ const adminSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: { type: String, default: "admin" },
+    avatar: { type: String },
+    phone: { type: String },
+    bio: { type: String },
     deviceToken: { type: String, default: null }, // For single-device login
   },
   { timestamps: true }
