@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { createEvent, getEvents, getEventById, updateEvent, deleteEvent } from "../controllers/eventController.js";
+import { createEvent, createAdminEvent, getEvents, getEventById, updateEvent, deleteEvent } from "../controllers/eventController.js";
 
 const router = express.Router();
 

@@ -173,6 +173,18 @@ const updateProfile = async (req, res) => {
 };
 
 /* =========================================================
+   GET ALL USERS (Admin/Protected)
+========================================================= */
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({}).select("-password -deviceToken");
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+/* =========================================================
    EXPORT CONTROLLERS
 ========================================================= */
 export {
@@ -181,5 +193,6 @@ export {
   logoutUser,
   logoutFromAllDevices,
   getProfile,
-  updateProfile
+  updateProfile,
+  getAllUsers
 };

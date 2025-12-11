@@ -25,8 +25,17 @@ const userSchema = new mongoose.Schema(
     },
 
     // Login system fields
-    role: { type: String, default: "user" },
+    role: { type: String, enum: ["user", "admin", "organizer"], default: "user" },
     deviceToken: { type: String, default: null },
+    
+    // Organizer Specifics
+    organizerProfile: {
+      companyName: { type: String },
+      website: { type: String },
+      verificationStatus: { type: String, enum: ["pending", "verified", "rejected"], default: "pending" },
+      taxId: { type: String },
+    },
+    
     lastLogin: {
       time: Date,
       ip: String,
@@ -36,8 +45,22 @@ const userSchema = new mongoose.Schema(
       deviceInfo: Object,
     },
   },
-  { timestamps: true }
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
+
+// Virtual for bookings
+userSchema.virtual("bookings", {
+  ref: "Booking",
+  localField: "_id",
+  foreignField: "user",
+});
+
+// Virtual for organized events
+userSchema.virtual("events", {
+  ref: "Event",
+  localField: "_id",
+  foreignField: "organizer",
+});
 
 // Hash password
 userSchema.pre("save", async function (next) {

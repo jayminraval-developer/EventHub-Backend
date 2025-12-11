@@ -5,21 +5,89 @@
     // Create event
     export const createEvent = async (req, res) => {
     try {
-        const { name, description, date, location, price, category, image, availableSeats } = req.body;
+        const { name, description, date, location, price, category, image, availableSeats, capacity, status } = req.body;
         if (!name || !date || !location)
         return res.status(400).json({ message: "Name, date, and location are required" });
 
-        const newEvent = await Event.create({ name, description, date, location, price, category, image, availableSeats });
+        const newEvent = await Event.create({
+            name, 
+            description, 
+            date, 
+            location, 
+            price, 
+            category, 
+            image, 
+            availableSeats: availableSeats || capacity, // Default to capacity if not set 
+            capacity,
+            status: status || 'draft',
+            organizer: req.user._id 
+        });
         res.status(201).json(newEvent);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
     };
 
-    // Get all events
+    // Create event by Admin
+    export const createAdminEvent = async (req, res) => {
+        try {
+            const { name, description, date, location, price, category, image, availableSeats, capacity, status, organizerId } = req.body;
+            
+            if (!name || !date || !location || !organizerId) {
+                return res.status(400).json({ message: "Name, date, location, and organizer are required" });
+            }
+
+            const newEvent = await Event.create({
+                name, 
+                description, 
+                date, 
+                location, 
+                price, 
+                category, 
+                image, 
+                availableSeats: availableSeats || capacity,
+                capacity,
+                status: status || 'published', // Admin created events default to published?
+                organizer: organizerId 
+            });
+            res.status(201).json(newEvent);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    };
+
+    // Get all events with Search and Location Filter
     export const getEvents = async (req, res) => {
     try {
-        const events = await Event.find().limit(10);
+        const { search, location, category, organizer } = req.query;
+        let query = {};
+
+        if (search) {
+            const searchRegex = new RegExp(search, "i"); // case-insensitive
+            query.$or = [
+                { name: searchRegex },
+                { description: searchRegex },
+                { location: searchRegex }
+            ];
+        }
+
+        if (location && location !== "All") {
+             query.location = new RegExp(location, "i");
+        }
+        
+        if (category) {
+            query.category = category;
+        }
+
+        if (organizer) {
+            query.organizer = organizer;
+        }
+
+        const events = await Event.find(query)
+            .populate("organizer", "name email organizerProfile")
+            .populate("category", "name icon")
+            .sort({ date: 1 });
+            
         res.json(events);
     } catch (error) {
         res.status(500).json({ message: error.message });
