@@ -1,11 +1,12 @@
 import express from "express";
-import { registerAdmin, loginAdmin, getDashboardStats, getOrganizers, getAllUsers, getAllEvents, getLoginActivities, getAdminProfile, updateAdminProfile } from "../controllers/adminController.js";
+import { registerAdmin, loginAdmin, getDashboardStats, getOrganizers, getAllUsers, getAllEvents, getLoginActivities, getAdminProfile, updateAdminProfile, seedAdmin } from "../controllers/adminController.js";
 import { generateBio } from "../controllers/aiController.js";
 import { createAdminEvent } from "../controllers/eventController.js"; 
 import { protectAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+router.get("/seed", seedAdmin);
 router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
 

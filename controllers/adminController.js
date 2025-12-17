@@ -251,3 +251,35 @@ export const getLoginActivities = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// @desc    Seed Admin User due to lack of shell access
+// @route   GET /api/admin/seed
+export const seedAdmin = async (req, res) => {
+    try {
+        const email = "jayminraval7046@gmail.com";
+        const password = "J@ymin7046";
+        const name = "Jaymin Raval";
+
+        const existingAdmin = await Admin.findOne({ email });
+        if (existingAdmin) {
+            return res.status(200).json({ message: "Admin user already exists" });
+        }
+
+        const admin = await Admin.create({
+            name,
+            email,
+            password,
+            role: "admin",
+            permissions: ["finance_view", "settings_global"],
+            avatar: "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random"
+        });
+
+        res.status(201).json({ 
+            message: "Admin created successfully", 
+            email: admin.email,
+            password: "Use the default password"
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
