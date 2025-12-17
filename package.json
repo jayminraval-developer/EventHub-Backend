@@ -9,6 +9,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^1.37.2",
     "cors": "^2.8.5",
@@ -21,6 +22,7 @@
     "mongoose": "^8.19.1",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
+    "pdfkit": "^0.17.2",
     "ua-parser-js": "^2.0.6",
     "useragent": "^2.3.0"
   },

@@ -1,5 +1,6 @@
 // controllers/userController.js
 import User from "../models/User.js";
+import { logActivity } from "../utils/logger.js";
 import generateToken from "../utils/generateToken.js";
 import crypto from "crypto";
 import { UAParser } from "ua-parser-js";
@@ -29,6 +30,13 @@ const registerUser = async (req, res) => {
     if (exist) return res.status(400).json({ message: "User already exists" });
 
     const user = await User.create({ name, email, password });
+
+    // Log Activity
+    // Note: req.user is not set yet for register, so we might need to handle "Guest" logic within logger or pass user manually if needed.
+    // But logger uses req.user. Since this is public route, it will be "Guest/System".
+    // Better to explicitly allow passing user details if we want "User X Registered".
+    // However, for now, let's just log "New User Registered" with the user's name as target.
+    await logActivity(req, "REGISTERED", "USER", user.name, { email: user.email });
 
     return res.status(201).json({
       _id: user._id,
@@ -64,7 +72,6 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const newDeviceToken = crypto.randomBytes(32).toString("hex");
     user.deviceToken = newDeviceToken;
     user.lastLogin = {
       time: new Date(),
@@ -74,6 +81,13 @@ const loginUser = async (req, res) => {
       platform: parsed.platform?.type || parsed.platform?.vendor || "",
     };
     await user.save();
+
+    // Log Activity (Login)
+    // Here we can attach user to req so logger picks it up, or just rely on the fact that we have the user object.
+    // The logger utility inspects req.user. Since login is public, req.user is undefined.
+    // Let's modify logger call to work or attach to req manually for this instance.
+    req.user = user; 
+    await logActivity(req, "LOGIN", "AUTH", "Web Portal");
 
     return res.json({
       _id: user._id,

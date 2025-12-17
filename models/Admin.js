@@ -11,6 +11,7 @@ const adminSchema = new mongoose.Schema(
     phone: { type: String },
     bio: { type: String },
     deviceToken: { type: String, default: null }, // For single-device login
+    permissions: { type: [String], default: [] }, // RBAC Permissions
   },
   { timestamps: true }
 );

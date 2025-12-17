@@ -2,6 +2,7 @@ import Admin from "../models/Admin.js";
 import User from "../models/User.js";
 import Event from "../models/Event.js";
 import Booking from "../models/Booking.js";
+import SystemLog from "../models/SystemLog.js";
 import generateToken from "../utils/generateToken.js";
 import crypto from "crypto";
 
@@ -48,6 +49,9 @@ export const loginAdmin = async (req, res) => {
         _id: admin._id,
         name: admin.name,
         email: admin.email,
+        role: admin.role,
+        avatar: admin.avatar,
+        permissions: admin.permissions,
         token: generateToken(admin._id),
         deviceToken, // send to frontend
       });
@@ -71,7 +75,6 @@ export const getAdminProfile = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
     }
-  }
 };
 
 // @desc Update Admin Profile
@@ -80,14 +83,24 @@ export const updateAdminProfile = async (req, res) => {
     try {
         const admin = await Admin.findById(req.admin._id);
         if(admin){
-            admin.name = req.body.name || admin.name;
-            admin.email = req.body.email || admin.email;
-            admin.phone = req.body.phone || admin.phone;
-            admin.bio = req.body.bio || admin.bio;
-            admin.avatar = req.body.avatar || admin.avatar;
+            admin.name = req.body.name || admin.name; // Keep name required
+            admin.email = req.body.email || admin.email; // Keep email required
+            
+            // Allow clearing these fields (if sent as "" it should overwrite)
+            if(req.body.phone !== undefined) admin.phone = req.body.phone;
+            if(req.body.bio !== undefined) admin.bio = req.body.bio;
+            if(req.body.avatar !== undefined) admin.avatar = req.body.avatar;
             
             if(req.body.password){
-                admin.password = req.body.password;
+                const { currentPassword } = req.body;
+                if(!currentPassword){
+                     return res.status(400).json({ message: "Current password is required to set a new password" });
+                }
+                if (await admin.matchPassword(currentPassword)) {
+                    admin.password = req.body.password;
+                } else {
+                    return res.status(401).json({ message: "Incorrect current password" });
+                }
             }
 
             const updatedAdmin = await admin.save();
@@ -118,22 +131,13 @@ export const getDashboardStats = async (req, res) => {
     const activeOrganizers = await User.countDocuments({ role: "organizer", "organizerProfile.verificationStatus": "verified" });
     
     // Calculate total revenue from confirmed bookings
-    // Note: This matches the "fake" logic in mock data but real implementation would need aggregation
     const bookings = await Booking.find({ status: "confirmed" });
     const totalRevenue = bookings.reduce((acc, booking) => acc + booking.totalAmount, 0);
 
-    // Get recent activity
-    const recentBookings = await Booking.find().sort("-createdAt").limit(5)
-      .populate("user", "name")
-      .populate("event", "name");
-      
-    const recentActivity = recentBookings.map(b => ({
-      id: b._id,
-      user: b.user?.name || "Unknown",
-      action: "booked ticket for",
-      target: b.event?.name || "Unknown Event",
-      time: b.createdAt
-    }));
+    // Fetch Recent Activity from Centralized Log
+    const recentActivity = await SystemLog.find()
+      .sort({ timestamp: -1 })
+      .limit(20);
 
     // Mock revenue chart data for now as we don't have historical data
     const revenueChart = [
@@ -142,19 +146,19 @@ export const getDashboardStats = async (req, res) => {
       { month: 'Mar', amount: 2000 },
       { month: 'Apr', amount: 2780 },
       { month: 'May', amount: 1890 },
-      { month: 'June', amount: 2390 },
+      { month: 'Jun', amount: 2390 },
     ];
 
     res.json({
       totalUsers,
       totalEvents,
-      totalRevenue,
       activeOrganizers,
+      totalRevenue,
       recentActivity,
       revenueChart
     });
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 

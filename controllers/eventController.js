@@ -1,6 +1,7 @@
     // controllers/eventController.js
 
     import Event from "../models/Event.js";
+    import { logActivity } from "../utils/logger.js";
 
     // Create event
     export const createEvent = async (req, res) => {
@@ -22,6 +23,10 @@
             status: status || 'draft',
             organizer: req.user._id 
         });
+        
+        // Log Activity
+        await logActivity(req, "CREATED", "EVENT", newEvent.name);
+
         res.status(201).json(newEvent);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -50,6 +55,10 @@
                 status: status || 'published', // Admin created events default to published?
                 organizer: organizerId 
             });
+
+            // Log Activity
+            await logActivity(req, "CREATED", "EVENT", newEvent.name, { adminCreated: true });
+
             res.status(201).json(newEvent);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -113,6 +122,10 @@
 
         Object.assign(event, req.body); // update only provided fields
         const updatedEvent = await event.save();
+
+        // Log Activity
+        await logActivity(req, "UPDATED", "EVENT", updatedEvent.name);
+
         res.json(updatedEvent);
     } catch (error) {
         res.status(500).json({ message: error.message });

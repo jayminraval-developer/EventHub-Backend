@@ -1,5 +1,6 @@
 import express from "express";
 import { registerAdmin, loginAdmin, getDashboardStats, getOrganizers, getAllUsers, getAllEvents, getLoginActivities, getAdminProfile, updateAdminProfile } from "../controllers/adminController.js";
+import { generateBio } from "../controllers/aiController.js";
 import { createAdminEvent } from "../controllers/eventController.js"; 
 import { protectAdmin } from "../middleware/authMiddleware.js";
 
@@ -12,6 +13,8 @@ router.post("/login", loginAdmin);
 router.route("/profile")
     .get(protectAdmin, getAdminProfile)
     .put(protectAdmin, updateAdminProfile);
+
+router.post("/generate-bio", protectAdmin, generateBio);
 
 router.get("/dashboard", protectAdmin, (req, res) => {
   res.json({ message: `Welcome Admin ${req.admin.name}` });
