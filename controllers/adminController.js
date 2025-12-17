@@ -55,6 +55,8 @@ export const loginAdmin = async (req, res) => {
         token: generateToken(admin._id),
         deviceToken, // send to frontend
       });
+    } else {
+      res.status(401).json({ message: "Invalid email or password" });
     }
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
