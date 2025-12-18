@@ -66,62 +66,70 @@ export const loginAdmin = async (req, res) => {
 // @desc    Get Current Admin Profile
 // @route   GET /api/admin/profile
 export const getAdminProfile = async (req, res) => {
-    try {
-        // req.admin is set by protectAdmin middleware
-        const admin = await Admin.findById(req.admin._id).select("-password -deviceToken");
-        if(admin){
-            res.json(admin);
-        } else {
-            res.status(404).json({ message: "Admin not found" });
-        }
-    } catch (error) {
-        res.status(500).json({ message: "Server error", error: error.message });
+  try {
+    // req.admin is set by protectAdmin middleware
+    const admin = await Admin.findById(req.admin._id).select(
+      "-password -deviceToken"
+    );
+    if (admin) {
+      res.json(admin);
+    } else {
+      res.status(404).json({ message: "Admin not found" });
     }
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
 };
 
 // @desc Update Admin Profile
 // @route PUT /api/admin/profile
 export const updateAdminProfile = async (req, res) => {
-    try {
-        const admin = await Admin.findById(req.admin._id);
-        if(admin){
-            admin.name = req.body.name || admin.name; // Keep name required
-            admin.email = req.body.email || admin.email; // Keep email required
-            
-            // Allow clearing these fields (if sent as "" it should overwrite)
-            if(req.body.phone !== undefined) admin.phone = req.body.phone;
-            if(req.body.bio !== undefined) admin.bio = req.body.bio;
-            if(req.body.avatar !== undefined) admin.avatar = req.body.avatar;
-            
-            if(req.body.password){
-                const { currentPassword } = req.body;
-                if(!currentPassword){
-                     return res.status(400).json({ message: "Current password is required to set a new password" });
-                }
-                if (await admin.matchPassword(currentPassword)) {
-                    admin.password = req.body.password;
-                } else {
-                    return res.status(401).json({ message: "Incorrect current password" });
-                }
-            }
+  try {
+    const admin = await Admin.findById(req.admin._id);
+    if (admin) {
+      admin.name = req.body.name || admin.name; // Keep name required
+      admin.email = req.body.email || admin.email; // Keep email required
 
-            const updatedAdmin = await admin.save();
-            res.json({
-                _id: updatedAdmin._id,
-                name: updatedAdmin.name,
-                email: updatedAdmin.email,
-                role: updatedAdmin.role,
-                phone: updatedAdmin.phone,
-                bio: updatedAdmin.bio,
-                avatar: updatedAdmin.avatar,
-                token: generateToken(updatedAdmin._id)
+      // Allow clearing these fields (if sent as "" it should overwrite)
+      if (req.body.phone !== undefined) admin.phone = req.body.phone;
+      if (req.body.bio !== undefined) admin.bio = req.body.bio;
+      if (req.body.avatar !== undefined) admin.avatar = req.body.avatar;
+
+      if (req.body.password) {
+        const { currentPassword } = req.body;
+        if (!currentPassword) {
+          return res
+            .status(400)
+            .json({
+              message: "Current password is required to set a new password",
             });
-        } else {
-            res.status(404).json({ message: "Admin not found" });
         }
-    } catch (error) {
-        res.status(500).json({ message: "Server error", error: error.message });
+        if (await admin.matchPassword(currentPassword)) {
+          admin.password = req.body.password;
+        } else {
+          return res
+            .status(401)
+            .json({ message: "Incorrect current password" });
+        }
+      }
+
+      const updatedAdmin = await admin.save();
+      res.json({
+        _id: updatedAdmin._id,
+        name: updatedAdmin.name,
+        email: updatedAdmin.email,
+        role: updatedAdmin.role,
+        phone: updatedAdmin.phone,
+        bio: updatedAdmin.bio,
+        avatar: updatedAdmin.avatar,
+        token: generateToken(updatedAdmin._id),
+      });
+    } else {
+      res.status(404).json({ message: "Admin not found" });
     }
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
 };
 
 // @desc    Get Admin Dashboard Stats
@@ -130,11 +138,17 @@ export const getDashboardStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments({ role: "user" });
     const totalEvents = await Event.countDocuments();
-    const activeOrganizers = await User.countDocuments({ role: "organizer", "organizerProfile.verificationStatus": "verified" });
-    
+    const activeOrganizers = await User.countDocuments({
+      role: "organizer",
+      "organizerProfile.verificationStatus": "verified",
+    });
+
     // Calculate total revenue from confirmed bookings
     const bookings = await Booking.find({ status: "confirmed" });
-    const totalRevenue = bookings.reduce((acc, booking) => acc + booking.totalAmount, 0);
+    const totalRevenue = bookings.reduce(
+      (acc, booking) => acc + booking.totalAmount,
+      0
+    );
 
     // Fetch Recent Activity from Centralized Log
     const recentActivity = await SystemLog.find()
@@ -143,12 +157,12 @@ export const getDashboardStats = async (req, res) => {
 
     // Mock revenue chart data for now as we don't have historical data
     const revenueChart = [
-      { month: 'Jan', amount: 4000 },
-      { month: 'Feb', amount: 3000 },
-      { month: 'Mar', amount: 2000 },
-      { month: 'Apr', amount: 2780 },
-      { month: 'May', amount: 1890 },
-      { month: 'Jun', amount: 2390 },
+      { month: "Jan", amount: 4000 },
+      { month: "Feb", amount: 3000 },
+      { month: "Mar", amount: 2000 },
+      { month: "Apr", amount: 2780 },
+      { month: "May", amount: 1890 },
+      { month: "Jun", amount: 2390 },
     ];
 
     res.json({
@@ -157,7 +171,7 @@ export const getDashboardStats = async (req, res) => {
       activeOrganizers,
       totalRevenue,
       recentActivity,
-      revenueChart
+      revenueChart,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -167,26 +181,34 @@ export const getDashboardStats = async (req, res) => {
 // @desc    Get all organizers with stats
 // @route   GET /api/admin/organizers
 export const getOrganizers = async (req, res) => {
-    try {
-        const organizers = await User.find({ role: "organizer" })
-            .select("-password")
-            .lean(); // Use lean for performance and easier modification
-        
-        const organizersWithStats = await Promise.all(organizers.map(async (org) => {
-            const liveEvents = await Event.countDocuments({ organizer: org._id, status: "published" });
-            const completedEvents = await Event.countDocuments({ organizer: org._id, status: "completed" });
-            return {
-                ...org,
-                live: liveEvents,
-                completed: completedEvents,
-                salesManager: "Not Assigned" // Placeholder until Sales Manager concept exists
-            };
-        }));
+  try {
+    const organizers = await User.find({ role: "organizer" })
+      .select("-password")
+      .lean(); // Use lean for performance and easier modification
 
-        res.json(organizersWithStats);
-    } catch (error) {
-        res.status(500).json({ message: "Server Error", error: error.message });
-    }
+    const organizersWithStats = await Promise.all(
+      organizers.map(async (org) => {
+        const liveEvents = await Event.countDocuments({
+          organizer: org._id,
+          status: "published",
+        });
+        const completedEvents = await Event.countDocuments({
+          organizer: org._id,
+          status: "completed",
+        });
+        return {
+          ...org,
+          live: liveEvents,
+          completed: completedEvents,
+          salesManager: "Not Assigned", // Placeholder until Sales Manager concept exists
+        };
+      })
+    );
+
+    res.json(organizersWithStats);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
 };
 
 // @desc    Get all users
@@ -216,70 +238,76 @@ export const getAllEvents = async (req, res) => {
 // @desc    Get all events
 // @route   GET /api/admin// Get all login activities (Security Log)
 export const getLoginActivities = async (req, res) => {
-    try {
-        // Assuming LoginActivity is populated during login (which we might need to fix if it's not)
-        // For now, let's fetch from LoginActivity model if used, or aggregate from Users loginHistory.
-        // Let's use the LoginActivity model if it exists, otherwise we'll aggregate.
-        // Based on file list, LoginActivity model exists.
-        
-        // Dynamic import to avoid circular dependency issues or just standard import at top if possible
-        // But for this edit block, I will assume it is not imported yet. 
-        // Better strategy: I'll add the import at the top in a separate edit or just use User's loginHistory for now to be safe.
-        // Actually, let's check if LoginActivity is used. IF NOT, this table will be empty. 
-        // Let's sticking to "User.loginHistory" for now to show SOMETHING.
-        
-        const users = await User.find({}).select("name email loginHistory");
-        let logs = [];
-        users.forEach(user => {
-            if(user.loginHistory){
-                user.loginHistory.forEach(log => {
-                    logs.push({
-                        ...log.toObject(),
-                        userName: user.name,
-                        userEmail: user.email,
-                        _id: log._id || new Date().getTime()
-                    });
-                });
-            }
-        });
-        
-        // Sort by date desc
-        logs.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-        res.json(logs);
+  try {
+    // Assuming LoginActivity is populated during login (which we might need to fix if it's not)
+    // For now, let's fetch from LoginActivity model if used, or aggregate from Users loginHistory.
+    // Let's use the LoginActivity model if it exists, otherwise we'll aggregate.
+    // Based on file list, LoginActivity model exists.
 
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+    // Dynamic import to avoid circular dependency issues or just standard import at top if possible
+    // But for this edit block, I will assume it is not imported yet.
+    // Better strategy: I'll add the import at the top in a separate edit or just use User's loginHistory for now to be safe.
+    // Actually, let's check if LoginActivity is used. IF NOT, this table will be empty.
+    // Let's sticking to "User.loginHistory" for now to show SOMETHING.
+
+    const users = await User.find({}).select("name email loginHistory");
+    let logs = [];
+    users.forEach((user) => {
+      if (user.loginHistory) {
+        user.loginHistory.forEach((log) => {
+          logs.push({
+            ...log.toObject(),
+            userName: user.name,
+            userEmail: user.email,
+            _id: log._id || new Date().getTime(),
+          });
+        });
+      }
+    });
+
+    // Sort by date desc
+    logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // @desc    Seed Admin User due to lack of shell access
 // @route   GET /api/admin/seed
 export const seedAdmin = async (req, res) => {
-    try {
-        const email = "jayminraval7046@gmail.com";
-        const password = "J@ymin7046";
-        const name = "Jaymin Raval";
+  try {
+    const email = "jayminraval7046@gmail.com";
+    const password = "J@ymin7046";
+    const name = "Jaymin Raval";
 
-        const existingAdmin = await Admin.findOne({ email });
-        if (existingAdmin) {
-            return res.status(200).json({ message: "Admin user already exists" });
-        }
-
-        const admin = await Admin.create({
-            name,
-            email,
-            password,
-            role: "admin",
-            permissions: ["finance_view", "settings_global"],
-            avatar: "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random"
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingAdmin) {
+      existingAdmin.password = password; // Reset password to default
+      await existingAdmin.save(); // Triggers hashing
+      return res
+        .status(200)
+        .json({
+          message:
+            "Admin user already exists. Password has been reset to default.",
         });
-
-        res.status(201).json({ 
-            message: "Admin created successfully", 
-            email: admin.email,
-            password: "Use the default password"
-        });
-    } catch (error) {
-        res.status(500).json({ message: "Server error", error: error.message });
     }
+
+    const admin = await Admin.create({
+      name,
+      email,
+      password,
+      role: "admin",
+      permissions: ["finance_view", "settings_global"],
+      avatar: "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random",
+    });
+
+    res.status(201).json({
+      message: "Admin created successfully",
+      email: admin.email,
+      password: "Use the default password",
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
 };
