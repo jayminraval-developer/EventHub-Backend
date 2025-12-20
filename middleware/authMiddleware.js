@@ -41,13 +41,26 @@ export const protectAdmin = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const admin = await Admin.findById(decoded.id).select("-password");
+    // 1. Check Admin Collection
+    let account = await Admin.findById(decoded.id).select("-password");
 
-    if (!admin) {
+    // 2. Check User Collection (e.g. for Organizers accessing Admin Panel)
+    if (!account) {
+      const user = await User.findById(decoded.id).select("-password");
+      if (user && ["organizer", "staff"].includes(user.role)) {
+        account = user;
+        // Polyfill permissions for User if missing, to prevent frontend crashes
+        if (!account.permissions) {
+          account.permissions = []; 
+        }
+      }
+    }
+
+    if (!account) {
       return res.status(401).json({ message: "Not authorized as admin" });
     }
 
-    req.admin = admin;
+    req.admin = account;
     next();
   } catch (error) {
     console.error(error);

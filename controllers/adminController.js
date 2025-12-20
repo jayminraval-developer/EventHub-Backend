@@ -8,20 +8,54 @@ import crypto from "crypto";
 
 // @desc Register new admin
 // @route POST /api/admin/register
+// @desc Register new admin or organizer (System User)
+// @route POST /api/admin/register
 export const registerAdmin = async (req, res) => {
   try {
     const { name, email, password, role, avatar, permissions } = req.body;
+    const normalizedEmail = email.toLowerCase();
+    const targetRole = role || "admin";
 
-    const existingAdmin = await Admin.findOne({ email });
+    // 1. If role is ORGANIZER, create in USER collection
+    if (targetRole === "organizer") {
+      const existingUser = await User.findOne({ email: normalizedEmail });
+      if (existingUser) {
+        return res.status(400).json({ message: "User/Organizer already exists" });
+      }
+
+      const user = await User.create({
+        name,
+        email: normalizedEmail,
+        password,
+        role: "organizer",
+        role_type: "ORGANIZER", // Sync with enum
+        avatar: avatar || "",
+        // Organizer specific defaults
+        organizerProfile: {
+          verificationStatus: "verified", // Admin created organizers are auto-verified
+        }
+      });
+
+      return res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: generateToken(user._id),
+      });
+    }
+
+    // 2. If role is ADMIN or STAFF, create in ADMIN collection
+    const existingAdmin = await Admin.findOne({ email: normalizedEmail });
     if (existingAdmin) {
       return res.status(400).json({ message: "Admin already exists" });
     }
 
     const admin = await Admin.create({ 
       name, 
-      email, 
+      email: normalizedEmail, 
       password,
-      role: role || "admin",
+      role: targetRole,
       avatar: avatar || "",
       permissions: permissions || []
     });
@@ -30,6 +64,7 @@ export const registerAdmin = async (req, res) => {
       _id: admin._id,
       name: admin.name,
       email: admin.email,
+      role: admin.role,
       token: generateToken(admin._id),
     });
   } catch (error) {
@@ -37,25 +72,23 @@ export const registerAdmin = async (req, res) => {
   }
 };
 
-// @desc Login admin with single-device logic
+// @desc Login admin (and support Organizer login to admin panel)
 // @route POST /api/admin/login
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
     const normalizedEmail = email.toLowerCase();
-    console.log(`Login attempt for: ${normalizedEmail}`); // Debug log
+    console.log(`Login attempt for: ${normalizedEmail}`);
 
+    // 1. Try finding in ADMIN collection
     const admin = await Admin.findOne({ email: normalizedEmail });
+    
     if (admin && (await admin.matchPassword(password))) {
-      // ... (rest of logic same)
-      // Generate a unique device token for this session
       const deviceToken = crypto.randomBytes(16).toString("hex");
-
-      // Save token in admin DB
       admin.deviceToken = deviceToken;
       await admin.save();
 
-      res.json({
+      return res.json({
         _id: admin._id,
         name: admin.name,
         email: admin.email,
@@ -63,11 +96,40 @@ export const loginAdmin = async (req, res) => {
         avatar: admin.avatar,
         permissions: admin.permissions,
         token: generateToken(admin._id),
-        deviceToken, // send to frontend
+        deviceToken,
+        type: "admin" // Flag to frontend
       });
-    } else {
-      res.status(401).json({ message: "Invalid email or password" });
     }
+
+    // 2. If not found in Admin, try USER collection (for Organizers)
+    const user = await User.findOne({ email: normalizedEmail, role: "organizer" });
+
+    if (user && (await user.matchPassword(password))) {
+      // Optional: Check if blocked?
+      if (user.status === 'blocked') {
+        return res.status(401).json({ message: "Account is blocked" });
+      }
+
+      // Generate device token if User model supports it (it does based on schema)
+      const deviceToken = crypto.randomBytes(16).toString("hex");
+      user.deviceToken = deviceToken;
+      await user.save();
+
+      return res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        permissions: [], // Users don't have granular permissions array usually, or empty
+        token: generateToken(user._id),
+        deviceToken,
+        type: "user"
+      });
+    }
+
+    res.status(401).json({ message: "Invalid email or password" });
+
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -75,40 +137,18 @@ export const loginAdmin = async (req, res) => {
 
 // ...
 
-// @desc    Seed Admin Users (Dynamic or Default)
-// @route   GET /api/admin/seed (or POST to provide list)
+// @desc    Seed Admin Users (Bulk Import)
+// @route   GET /api/admin/seed (changed to POST recommended, but kept GET/POST logic if hybrid)
 export const seedAdmin = async (req, res) => {
   try {
-    let adminsToSeed = req.body.admins;
+    const adminsToSeed = req.body.admins;
 
-    // Fallback to default System Admins if no body provided
+    // Remove hardcoded fallback for security. Require input.
     if (!adminsToSeed || !Array.isArray(adminsToSeed) || adminsToSeed.length === 0) {
-      adminsToSeed = [
-        {
-          name: "Dipak",
-          email: "dt1193699@gmail.com",
-          password: "Dip@k7069",
-          role: "super_admin",
-          avatar: "https://ui-avatars.com/api/?name=Dipak&background=random",
-        },
-        {
-          name: "Jaymin Raval",
-          email: "jayminraval7046@gmail.com",
-          password: "J@ymin7046",
-          role: "super_admin",
-          avatar: "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random",
-        },
-        {
-          name: "Jaymin Admin",
-          email: "jayminraval57@gmail.com",
-          password: "J@ymin7046",
-          role: "admin",
-          avatar: "https://ui-avatars.com/api/?name=Jaymin+Admin&background=random",
-        },
-      ];
+      return res.status(400).json({ 
+        message: "No admin data provided. Please provide an array of admins in the body." 
+      });
     }
-    
-    // ... rest of the function remains the same, iterating over adminsToSeed
 
     const results = [];
 
@@ -370,77 +410,4 @@ export const getLoginActivities = async (req, res) => {
   }
 };
 
-// @desc    Seed Admin User due to lack of shell access
-// @route   GET /api/admin/seed
-// @desc    Seed Admin Users
-// @route   GET /api/admin/seed
-export const seedAdmin = async (req, res) => {
-  try {
-    const adminsToSeed = [
-      {
-        name: "Dipak",
-        email: "dt1193699@gmail.com",
-        password: "Dip@k7069",
-        role: "super_admin",
-        avatar: "https://ui-avatars.com/api/?name=Dipak&background=random",
-      },
-      {
-        name: "Jaymin Raval",
-        email: "jayminraval7046@gmail.com",
-        password: "J@ymin7046",
-        role: "super_admin",
-        avatar:
-          "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random",
-      },
-      {
-        name: "Jaymin Admin",
-        email: "jayminraval57@gmail.com",
-        password: "J@ymin7046",
-        role: "admin",
-        avatar:
-          "https://ui-avatars.com/api/?name=Jaymin+Admin&background=random",
-      },
-    ];
 
-    const results = [];
-
-    for (const adminData of adminsToSeed) {
-      const existingAdmin = await Admin.findOne({ email: adminData.email });
-
-      if (existingAdmin) {
-        // Update existing admin
-        existingAdmin.password = adminData.password; // Triggers hash on save
-        existingAdmin.role = adminData.role;
-        existingAdmin.name = adminData.name;
-        await existingAdmin.save();
-        results.push({
-          email: adminData.email,
-          status: "Updated",
-          role: adminData.role,
-        });
-      } else {
-        // Create new admin
-        await Admin.create({
-          name: adminData.name,
-          email: adminData.email,
-          password: adminData.password, // Triggers hash on create/save
-          role: adminData.role,
-          permissions: ["finance_view", "settings_global"], // Default perms
-          avatar: adminData.avatar,
-        });
-        results.push({
-          email: adminData.email,
-          status: "Created",
-          role: adminData.role,
-        });
-      }
-    }
-
-    res.status(200).json({
-      message: "Admin seeding completed",
-      results,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};

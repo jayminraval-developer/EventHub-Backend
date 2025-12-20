@@ -9,8 +9,6 @@ const router = express.Router();
 router.get("/seed", seedAdmin);
 router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
-
-router.post("/login", loginAdmin);
 router.route("/profile")
     .get(protectAdmin, getAdminProfile)
     .put(protectAdmin, updateAdminProfile);
