@@ -15,25 +15,30 @@ export const registerAdmin = async (req, res) => {
     const { name, email, password, role, avatar, permissions } = req.body;
     const normalizedEmail = email.toLowerCase();
     const targetRole = role || "admin";
+    const adminRoles = ["admin", "staff", "super_admin"];
 
-    // 1. If role is ORGANIZER, create in USER collection
-    if (targetRole === "organizer") {
+    // 1. If role is NOT an admin role, create in USER collection
+    if (!adminRoles.includes(targetRole)) {
       const existingUser = await User.findOne({ email: normalizedEmail });
       if (existingUser) {
-        return res.status(400).json({ message: "User/Organizer already exists" });
+        return res.status(400).json({ message: "User already exists" });
       }
+
+      // Map lowercase role to Enum expectation if necessary (User model has lowercase enums)
+      const userRole = targetRole.toLowerCase(); 
+      const roleType = targetRole.toUpperCase(); // For role_type field
 
       const user = await User.create({
         name,
         email: normalizedEmail,
         password,
-        role: "organizer",
-        role_type: "ORGANIZER", // Sync with enum
+        role: userRole,
+        role_type: roleType,
         avatar: avatar || "",
-        // Organizer specific defaults
-        organizerProfile: {
-          verificationStatus: "verified", // Admin created organizers are auto-verified
-        }
+        // Organizer specific defaults (apply if role is organizer)
+        organizerProfile: userRole === "organizer" ? {
+          verificationStatus: "verified", 
+        } : undefined
       });
 
       return res.status(201).json({
@@ -334,11 +339,23 @@ export const getOrganizers = async (req, res) => {
 
 // @desc    Get users with role filtering
 // @route   GET /api/admin/users?role=type
+// @desc    Get users with role filtering
+// @route   GET /api/admin/users?role=type
 export const getAllUsers = async (req, res) => {
   try {
     const { role } = req.query;
     let query = {};
+    const isAdminQuery = ["admin", "staff", "super_admin"].includes(role);
 
+    if (isAdminQuery) {
+      // Fetch from Admin collection
+      const admins = await Admin.find(role ? { role } : {})
+        .select("-password -deviceToken")
+        .sort({ createdAt: -1 });
+      return res.json(admins);
+    }
+
+    // Fetch from User collection
     if (role) {
       if (role === "audience") {
         // Fetch both "audience" and legacy "user" roles
@@ -347,12 +364,13 @@ export const getAllUsers = async (req, res) => {
         query = { role };
       }
     } else {
-      // Default behavior if no role specified: don't fetch admins? or fetch all?
-      // Let's fetch all non-admins for safety, or just standard users if no param
-      query = { role: "user" }; // Fallback to old behavior
+      query = { role: "user" }; // Default to audience
     }
 
-    const users = await User.find(query).select("-password -deviceToken");
+    const users = await User.find(query)
+      .select("-password -deviceToken")
+      .sort({ createdAt: -1 });
+      
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
