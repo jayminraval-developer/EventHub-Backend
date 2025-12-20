@@ -99,11 +99,9 @@ export const updateAdminProfile = async (req, res) => {
       if (req.body.password) {
         const { currentPassword } = req.body;
         if (!currentPassword) {
-          return res
-            .status(400)
-            .json({
-              message: "Current password is required to set a new password",
-            });
+          return res.status(400).json({
+            message: "Current password is required to set a new password",
+          });
         }
         if (await admin.matchPassword(currentPassword)) {
           admin.password = req.body.password;
@@ -212,11 +210,27 @@ export const getOrganizers = async (req, res) => {
   }
 };
 
-// @desc    Get all users
-// @route   GET /api/admin/users
+// @desc    Get users with role filtering
+// @route   GET /api/admin/users?role=type
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({ role: "user" }).select("-password");
+    const { role } = req.query;
+    let query = {};
+
+    if (role) {
+      if (role === "audience") {
+        // Fetch both "audience" and legacy "user" roles
+        query = { role: { $in: ["audience", "user"] } };
+      } else {
+        query = { role };
+      }
+    } else {
+      // Default behavior if no role specified: don't fetch admins? or fetch all?
+      // Let's fetch all non-admins for safety, or just standard users if no param
+      query = { role: "user" }; // Fallback to old behavior
+    }
+
+    const users = await User.find(query).select("-password -deviceToken");
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
@@ -276,37 +290,73 @@ export const getLoginActivities = async (req, res) => {
 
 // @desc    Seed Admin User due to lack of shell access
 // @route   GET /api/admin/seed
+// @desc    Seed Admin Users
+// @route   GET /api/admin/seed
 export const seedAdmin = async (req, res) => {
   try {
-    const email = "jayminraval7046@gmail.com";
-    const password = "J@ymin7046";
-    const name = "Jaymin Raval";
+    const adminsToSeed = [
+      {
+        name: "Dipak",
+        email: "dt1193699@gmail.com",
+        password: "Dip@k7069",
+        role: "super_admin",
+        avatar: "https://ui-avatars.com/api/?name=Dipak&background=random",
+      },
+      {
+        name: "Jaymin Raval",
+        email: "jayminraval7046@gmail.com",
+        password: "J@ymin7046",
+        role: "super_admin",
+        avatar:
+          "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random",
+      },
+      {
+        name: "Jaymin Admin",
+        email: "jayminraval57@gmail.com",
+        password: "J@ymin7046",
+        role: "admin",
+        avatar:
+          "https://ui-avatars.com/api/?name=Jaymin+Admin&background=random",
+      },
+    ];
 
-    const existingAdmin = await Admin.findOne({ email });
-    if (existingAdmin) {
-      existingAdmin.password = password; // Reset password to default
-      await existingAdmin.save(); // Triggers hashing
-      return res
-        .status(200)
-        .json({
-          message:
-            "Admin user already exists. Password has been reset to default.",
+    const results = [];
+
+    for (const adminData of adminsToSeed) {
+      const existingAdmin = await Admin.findOne({ email: adminData.email });
+
+      if (existingAdmin) {
+        // Update existing admin
+        existingAdmin.password = adminData.password; // Triggers hash on save
+        existingAdmin.role = adminData.role;
+        existingAdmin.name = adminData.name;
+        await existingAdmin.save();
+        results.push({
+          email: adminData.email,
+          status: "Updated",
+          role: adminData.role,
         });
+      } else {
+        // Create new admin
+        await Admin.create({
+          name: adminData.name,
+          email: adminData.email,
+          password: adminData.password, // Triggers hash on create/save
+          role: adminData.role,
+          permissions: ["finance_view", "settings_global"], // Default perms
+          avatar: adminData.avatar,
+        });
+        results.push({
+          email: adminData.email,
+          status: "Created",
+          role: adminData.role,
+        });
+      }
     }
 
-    const admin = await Admin.create({
-      name,
-      email,
-      password,
-      role: "admin",
-      permissions: ["finance_view", "settings_global"],
-      avatar: "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random",
-    });
-
-    res.status(201).json({
-      message: "Admin created successfully",
-      email: admin.email,
-      password: "Use the default password",
+    res.status(200).json({
+      message: "Admin seeding completed",
+      results,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
