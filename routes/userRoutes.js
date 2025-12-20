@@ -7,6 +7,7 @@ import {
   getProfile,
   updateProfile,
   getAllUsers,
+  updateUserStatus,
 } from "../controllers/userController.js";
 import { protectUser, protectAdmin } from "../middleware/authMiddleware.js";
 import multer from "multer";
@@ -21,5 +22,6 @@ router.post("/logout-all", protectUser, logoutFromAllDevices);
 router.get("/profile", protectUser, getProfile);
 router.put("/profile", protectUser, upload.single("avatar"), updateProfile);
 router.get("/", protectAdmin, getAllUsers); // Protected by admin middleware
+router.put("/:id/status", protectAdmin, updateUserStatus); // Update user status
 
 export default router;

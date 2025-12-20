@@ -191,8 +191,42 @@ const updateProfile = async (req, res) => {
 ========================================================= */
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).select("-password -deviceToken");
+    const { role } = req.query;
+    let query = {};
+
+    if (role) {
+      // Check both role_type (uppercase) and role (lowercase) for robustness
+      query = {
+        $or: [
+          { role_type: role.toUpperCase() },
+          { role: role.toLowerCase() }
+        ]
+      };
+    }
+
+    const users = await User.find(query).select("-password -deviceToken");
     res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+/* =========================================================
+   UPDATE USER STATUS (Admin Only)
+========================================================= */
+const updateUserStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.status = status;
+    await user.save();
+
+    res.json({ message: "User status updated", status: user.status });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -208,5 +242,6 @@ export {
   logoutFromAllDevices,
   getProfile,
   updateProfile,
-  getAllUsers
+  getAllUsers,
+  updateUserStatus
 };

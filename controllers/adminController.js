@@ -35,10 +35,12 @@ export const registerAdmin = async (req, res) => {
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log(`Login attempt for: ${email}`); // Debug log
+    const normalizedEmail = email.toLowerCase();
+    console.log(`Login attempt for: ${normalizedEmail}`); // Debug log
 
-    const admin = await Admin.findOne({ email });
+    const admin = await Admin.findOne({ email: normalizedEmail });
     if (admin && (await admin.matchPassword(password))) {
+      // ... (rest of logic same)
       // Generate a unique device token for this session
       const deviceToken = crypto.randomBytes(16).toString("hex");
 
@@ -59,6 +61,72 @@ export const loginAdmin = async (req, res) => {
     } else {
       res.status(401).json({ message: "Invalid email or password" });
     }
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// ...
+
+// @desc    Seed Admin Users
+// @route   GET /api/admin/seed
+export const seedAdmin = async (req, res) => {
+  try {
+    const adminsToSeed = [
+      {
+        name: "Dipak",
+        email: "dt1193699@gmail.com",
+        password: "Dip@k7069",
+        role: "super_admin",
+        avatar: "https://ui-avatars.com/api/?name=Dipak&background=random",
+      },
+      {
+        name: "Jaymin Raval",
+        email: "jayminraval7046@gmail.com",
+        password: "J@ymin7046",
+        role: "super_admin",
+        avatar: "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random",
+      },
+      {
+        name: "Jaymin Admin",
+        email: "jayminraval57@gmail.com",
+        password: "J@ymin7046",
+        role: "admin",
+        avatar: "https://ui-avatars.com/api/?name=Jaymin+Admin&background=random",
+      },
+    ];
+
+    const results = [];
+
+    for (const adminData of adminsToSeed) {
+      const normalizedEmail = adminData.email.toLowerCase();
+      const existingAdmin = await Admin.findOne({ email: normalizedEmail });
+      
+      if (existingAdmin) {
+        // Update existing admin
+        existingAdmin.password = adminData.password; // Triggers hash on save
+        existingAdmin.role = adminData.role;
+        existingAdmin.name = adminData.name;
+        await existingAdmin.save();
+        results.push({ email: normalizedEmail, status: "Updated", role: adminData.role });
+      } else {
+        // Create new admin
+        await Admin.create({
+          name: adminData.name,
+          email: normalizedEmail,
+          password: adminData.password, // Triggers hash on create/save
+          role: adminData.role,
+          permissions: ["finance_view", "settings_global"], // Default perms
+          avatar: adminData.avatar,
+        });
+        results.push({ email: normalizedEmail, status: "Created", role: adminData.role });
+      }
+    }
+
+    res.status(200).json({
+      message: "Admin seeding completed",
+      results,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }

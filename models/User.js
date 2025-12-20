@@ -25,7 +25,21 @@ const userSchema = new mongoose.Schema(
     },
 
     // Login system fields
-    role: { type: String, enum: ["user", "admin", "organizer"], default: "user" },
+    role: { 
+      type: String, 
+      enum: ["user", "admin", "organizer", "artist", "sponsor", "audience", "seller", "staff"], 
+      default: "audience" // Changed default to generic audience
+    },
+    role_type: {
+      type: String,
+      enum: ["ADMIN", "ORGANIZER", "ARTIST", "SPONSOR", "AUDIENCE", "SELLER", "STAFF"],
+      default: "AUDIENCE"
+    },
+    status: {
+      type: String,
+      enum: ["active", "blocked", "inactive"],
+      default: "active"
+    },
     deviceToken: { type: String, default: null },
     
     // Organizer Specifics
