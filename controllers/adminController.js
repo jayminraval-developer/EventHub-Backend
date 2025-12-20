@@ -10,14 +10,21 @@ import crypto from "crypto";
 // @route POST /api/admin/register
 export const registerAdmin = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role, avatar, permissions } = req.body;
 
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {
       return res.status(400).json({ message: "Admin already exists" });
     }
 
-    const admin = await Admin.create({ name, email, password });
+    const admin = await Admin.create({ 
+      name, 
+      email, 
+      password,
+      role: role || "admin",
+      avatar: avatar || "",
+      permissions: permissions || []
+    });
 
     res.status(201).json({
       _id: admin._id,
@@ -68,33 +75,40 @@ export const loginAdmin = async (req, res) => {
 
 // ...
 
-// @desc    Seed Admin Users
-// @route   GET /api/admin/seed
+// @desc    Seed Admin Users (Dynamic or Default)
+// @route   GET /api/admin/seed (or POST to provide list)
 export const seedAdmin = async (req, res) => {
   try {
-    const adminsToSeed = [
-      {
-        name: "Dipak",
-        email: "dt1193699@gmail.com",
-        password: "Dip@k7069",
-        role: "super_admin",
-        avatar: "https://ui-avatars.com/api/?name=Dipak&background=random",
-      },
-      {
-        name: "Jaymin Raval",
-        email: "jayminraval7046@gmail.com",
-        password: "J@ymin7046",
-        role: "super_admin",
-        avatar: "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random",
-      },
-      {
-        name: "Jaymin Admin",
-        email: "jayminraval57@gmail.com",
-        password: "J@ymin7046",
-        role: "admin",
-        avatar: "https://ui-avatars.com/api/?name=Jaymin+Admin&background=random",
-      },
-    ];
+    let adminsToSeed = req.body.admins;
+
+    // Fallback to default System Admins if no body provided
+    if (!adminsToSeed || !Array.isArray(adminsToSeed) || adminsToSeed.length === 0) {
+      adminsToSeed = [
+        {
+          name: "Dipak",
+          email: "dt1193699@gmail.com",
+          password: "Dip@k7069",
+          role: "super_admin",
+          avatar: "https://ui-avatars.com/api/?name=Dipak&background=random",
+        },
+        {
+          name: "Jaymin Raval",
+          email: "jayminraval7046@gmail.com",
+          password: "J@ymin7046",
+          role: "super_admin",
+          avatar: "https://ui-avatars.com/api/?name=Jaymin+Raval&background=random",
+        },
+        {
+          name: "Jaymin Admin",
+          email: "jayminraval57@gmail.com",
+          password: "J@ymin7046",
+          role: "admin",
+          avatar: "https://ui-avatars.com/api/?name=Jaymin+Admin&background=random",
+        },
+      ];
+    }
+    
+    // ... rest of the function remains the same, iterating over adminsToSeed
 
     const results = [];
 
