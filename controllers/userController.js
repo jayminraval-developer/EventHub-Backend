@@ -72,7 +72,7 @@ const loginUser = async (req, res) => {
       });
     }
 
-    user.deviceToken = newDeviceToken;
+    user.deviceToken = deviceToken;
     user.lastLogin = {
       time: new Date(),
       ip,
@@ -94,7 +94,7 @@ const loginUser = async (req, res) => {
       name: user.name,
       email: user.email,
       token: generateToken(user._id),
-      deviceToken: newDeviceToken,
+      deviceToken: deviceToken,
     });
   } catch (error) {
     return res.status(500).json({ message: "Server error" });
