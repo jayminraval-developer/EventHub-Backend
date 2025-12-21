@@ -11,6 +11,9 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: "" }, // Cloudinary URL
     bio: { type: String, default: "" },
     phone: { type: String, default: "" },
+    city: { type: String, default: "" },
+    state: { type: String, default: "" },
+    interests: { type: [String], default: [] },
     location: { type: String, default: "" },
     gender: { type: String, enum: ["male", "female", "other", ""], default: "" },
     dateOfBirth: { type: Date, default: null },
