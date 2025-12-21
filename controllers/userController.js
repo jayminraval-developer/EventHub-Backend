@@ -66,11 +66,8 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    if (user.deviceToken && deviceToken && user.deviceToken !== deviceToken) {
-      return res.status(403).json({
-        message: "You are already logged in on another device. Please logout first.",
-      });
-    }
+    // Single device check removed to allow multi-device login
+    // if (user.deviceToken && deviceToken && user.deviceToken !== deviceToken) { ... }
 
     user.deviceToken = deviceToken;
     user.lastLogin = {
